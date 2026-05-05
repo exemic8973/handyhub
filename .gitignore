@@ -1,0 +1,16 @@
+node_modules
+# Keep environment variables out of version control
+.env
+
+# generated
+/generated/prisma
+
+# Next.js
+/.next/
+
+# Playwright
+/playwright-report/
+/test-results/
+
+# TypeScript
+*.tsbuildinfo

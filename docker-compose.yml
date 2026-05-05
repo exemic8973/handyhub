@@ -1,0 +1,60 @@
+version: '3.8'
+
+# -------------------------------------------------------------------
+# Local development with SQLite.
+# The SQLite database file is volume-mounted so it persists across
+# container restarts and can be shared with the host.
+#
+# To switch to PostgreSQL for production:
+#   1. Uncomment the postgres service and the app's depends_on block.
+#   2. Change the app's DATABASE_URL to the postgresql:// connection string.
+#   3. In prisma/schema.prisma, change the datasource provider to
+#      "postgresql" and set url = env("DATABASE_URL").
+#   4. Uncomment the postgres_data volume at the bottom.
+# -------------------------------------------------------------------
+
+services:
+  # ── PostgreSQL (uncomment for production) ──────────────────────
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: handyman-postgres
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: postgres
+  #     POSTGRES_DB: handyman_db
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U postgres"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: handyman-app
+    restart: unless-stopped
+    # depends_on:                    # uncomment for PostgreSQL
+    #   postgres:
+    #     condition: service_healthy
+    environment:
+      # SQLite (local dev & Docker):
+      DATABASE_URL: file:/app/prisma/dev.db
+      # PostgreSQL (uncomment for production):
+      # DATABASE_URL: postgresql://postgres:postgres@postgres:5432/handyman_db
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: your-secret-key-change-this-in-production
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./prisma:/app/prisma   # SQLite database file
+      - ./uploads:/app/uploads
+
+# Uncomment for PostgreSQL production volume:
+# volumes:
+#   postgres_data:
