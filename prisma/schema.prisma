@@ -3,15 +3,11 @@ generator client {
 }
 
 datasource db {
-  // SQLite for local development and Docker.
-  // The DATABASE_URL env var is set to "file:./prisma/dev.db" (or "file:/app/prisma/dev.db" in Docker).
-  provider = "sqlite"
-
-  // ── PostgreSQL (uncomment for production) ──────────────────────────
-  // provider = "postgresql"
-  // url      = env("DATABASE_URL")
-  //   Production DATABASE_URL format:
+  // Production: PostgreSQL
+  // Set DATABASE_URL in your environment:
   //   postgresql://USER:PASSWORD@HOST:5432/DB_NAME?sslmode=require
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum UserRole {
@@ -63,6 +59,7 @@ model User {
   reviewsReceived  Review[]   @relation("ReviewTarget")
   notifications    Notification[]
 
+  @@index([resetToken])
   @@map("users")
 }
 
@@ -139,9 +136,9 @@ model Availability {
 model Booking {
   id            String        @id @default(cuid())
   customerId    String
-  customer      User          @relation("CustomerBookings", fields: [customerId], references: [id])
+  customer      User          @relation("CustomerBookings", fields: [customerId], references: [id], onDelete: Restrict)
   handymanId    String
-  handyman      User          @relation("HandymanBookings", fields: [handymanId], references: [id])
+  handyman      User          @relation("HandymanBookings", fields: [handymanId], references: [id], onDelete: Restrict)
   serviceId     String
   service       Service       @relation(fields: [serviceId], references: [id])
   status        BookingStatus @default(PENDING)

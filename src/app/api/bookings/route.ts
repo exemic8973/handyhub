@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     }
 
     // ── Query ─────────────────────────────────────────────────────────────
-    const take = limit ? parseInt(limit, 10) : undefined
+    const take = limit ? Math.min(Math.max(1, parseInt(limit, 10)), 100) : undefined
 
     const bookings = await prisma.booking.findMany({
       where: where as any,

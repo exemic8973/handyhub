@@ -1,18 +1,22 @@
 import { NextResponse, NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import prisma from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { authOptions } from '@/lib/auth'
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-async function recalculateHandymanRating(handymanId: string) {
-  const result = await prisma.review.aggregate({
+async function recalculateHandymanRating(
+  tx: Prisma.TransactionClient,
+  handymanId: string,
+) {
+  const result = await tx.review.aggregate({
     where: { targetId: handymanId },
     _avg: { rating: true },
     _count: { rating: true }
   })
 
-  await prisma.handymanProfile.update({
+  await tx.handymanProfile.update({
     where: { userId: handymanId },
     data: {
       rating: result._avg.rating ?? 0,
@@ -176,28 +180,31 @@ export async function POST(request: Request) {
       )
     }
 
-    // Create the review
-    const review = await prisma.review.create({
-      data: {
-        bookingId,
-        authorId: userId,
-        targetId: booking.handymanId,
-        rating,
-        comment: comment || null
-      },
-      include: {
-        author: { select: { firstName: true, lastName: true } },
-        target: { select: { firstName: true, lastName: true } },
-        booking: {
-          include: {
-            service: { select: { name: true } }
+    // Create review and recalculate rating atomically
+    const review = await prisma.$transaction(async (tx) => {
+      const created = await tx.review.create({
+        data: {
+          bookingId,
+          authorId: userId,
+          targetId: booking.handymanId,
+          rating,
+          comment: comment || null
+        },
+        include: {
+          author: { select: { firstName: true, lastName: true } },
+          target: { select: { firstName: true, lastName: true } },
+          booking: {
+            include: {
+              service: { select: { name: true } }
+            }
           }
         }
-      }
-    })
+      })
 
-    // Recalculate handyman rating
-    await recalculateHandymanRating(booking.handymanId)
+      await recalculateHandymanRating(tx, booking.handymanId)
+
+      return created
+    })
 
     return NextResponse.json(
       {
