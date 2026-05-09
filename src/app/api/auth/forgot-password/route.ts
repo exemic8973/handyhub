@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import crypto from 'crypto'
 import prisma from '@/lib/prisma'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: Request) {
   try {
@@ -11,6 +12,18 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Email is required' },
         { status: 400 }
+      )
+    }
+
+    // 3 requests per email per hour
+    const { allowed, retryAfterMs } = checkRateLimit(`forgot-pwd:${email.toLowerCase()}`, 3, 60 * 60 * 1000)
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(Math.ceil(retryAfterMs / 1000)) },
+        }
       )
     }
 
@@ -27,22 +40,22 @@ export async function POST(request: Request) {
       )
     }
 
-    // Generate a secure random token
+    // Generate a secure random token — store only its SHA-256 hash in the DB
     const token = crypto.randomBytes(32).toString('hex')
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
 
     // Set expiry to 1 hour from now
     const expiry = new Date(Date.now() + 60 * 60 * 1000)
 
-    // Store the token and expiry on the user
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        resetToken: token,
+        resetToken: tokenHash,
         resetTokenExpiry: expiry
       }
     })
 
-    // Dev mode: log the reset link to the console since no email service is set up
+    // TODO: replace console.log with your email provider (SendGrid, Resend, etc.)
     const resetUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/reset-password?token=${token}`
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
     console.log('[forgot-password] Password reset requested')

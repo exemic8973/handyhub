@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import crypto from 'crypto'
 import bcrypt from 'bcryptjs'
 import prisma from '@/lib/prisma'
 
@@ -21,9 +22,11 @@ export async function POST(request: Request) {
       )
     }
 
-    // Find user with this reset token
+    // Hash the incoming token to compare against the stored hash
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
+
     const user = await prisma.user.findFirst({
-      where: { resetToken: token }
+      where: { resetToken: tokenHash }
     })
 
     if (!user) {
