@@ -12,8 +12,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const userId = (session.user as any).id as string
-    const userRole = (session.user as any).role as string
+    const userId = session.user.id
+    const userRole = session.user.role
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const userId = (session.user as any).id as string
+    const userId = session.user.id
     const body = await request.json()
     const {
       serviceId,
@@ -91,11 +91,26 @@ export async function POST(request: Request) {
     }
 
     // ── Find an available handyman who offers this service ────────────────
+    // Convert scheduledDate to ISO day of week: 1=Monday … 7=Sunday
+    const date = new Date(scheduledDate)
+    const jsDay = date.getDay() // 0=Sun … 6=Sat
+    const isoDay = jsDay === 0 ? 7 : jsDay
+
     const handymanService = await prisma.handymanService.findFirst({
       where: {
         serviceId,
         isActive: true,
-        handyman: { isAvailable: true },
+        handyman: {
+          isAvailable: true,
+          availability: {
+            some: {
+              dayOfWeek: isoDay,
+              isAvailable: true,
+              startTime: { lte: scheduledTime },
+              endTime: { gte: scheduledTime },
+            },
+          },
+        },
       },
       include: {
         handyman: {
@@ -107,7 +122,7 @@ export async function POST(request: Request) {
 
     if (!handymanService) {
       return NextResponse.json(
-        { error: 'No available handyman found for this service' },
+        { error: 'No available handyman found for this service at the requested date and time' },
         { status: 404 },
       )
     }

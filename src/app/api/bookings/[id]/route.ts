@@ -24,8 +24,8 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const userId = (session.user as any).id as string
-    const userRole = (session.user as any).role as string
+    const userId = session.user.id
+    const userRole = session.user.role
     const bookingId = params.id
 
     const booking = await prisma.booking.findUnique({
@@ -66,8 +66,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const userId = (session.user as any).id as string
-    const userRole = (session.user as any).role as string
+    const userId = session.user.id
+    const userRole = session.user.role
     const bookingId = params.id
 
     const body = await request.json()
@@ -118,6 +118,9 @@ export async function PUT(
     // ADMIN: any status allowed, no ownership check required
 
     // ── Update ────────────────────────────────────────────────────────────
+    const isCompletingNow =
+      status === 'COMPLETED' && booking.status !== 'COMPLETED'
+
     const updated = await prisma.booking.update({
       where: { id: bookingId },
       data: { status: status as BookingStatus },
@@ -127,6 +130,13 @@ export async function PUT(
         handyman: { select: { firstName: true, lastName: true } },
       },
     })
+
+    if (isCompletingNow) {
+      await prisma.handymanProfile.update({
+        where: { userId: booking.handymanId },
+        data: { totalJobs: { increment: 1 } },
+      })
+    }
 
     return NextResponse.json({ booking: updated })
   } catch (error) {
