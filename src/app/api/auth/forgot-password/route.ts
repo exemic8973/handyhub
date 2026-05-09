@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import crypto from 'crypto'
 import prisma from '@/lib/prisma'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { sendPasswordResetEmail } from '@/lib/email'
 
 export async function POST(request: Request) {
   try {
@@ -33,7 +34,6 @@ export async function POST(request: Request) {
 
     // Always return success — don't reveal whether the email exists
     if (!user) {
-      console.log(`[forgot-password] No user found for email: ${email}`)
       return NextResponse.json(
         { message: 'If an account with that email exists, we have sent a password reset link.' },
         { status: 200 }
@@ -55,14 +55,8 @@ export async function POST(request: Request) {
       }
     })
 
-    // TODO: replace console.log with your email provider (SendGrid, Resend, etc.)
     const resetUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/reset-password?token=${token}`
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-    console.log('[forgot-password] Password reset requested')
-    console.log(`  Email: ${email}`)
-    console.log(`  Reset URL: ${resetUrl}`)
-    console.log(`  Token expires: ${expiry.toISOString()}`)
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    await sendPasswordResetEmail(user.email, resetUrl)
 
     return NextResponse.json(
       { message: 'If an account with that email exists, we have sent a password reset link.' },
