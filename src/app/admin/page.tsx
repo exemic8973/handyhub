@@ -226,7 +226,7 @@ export default function AdminDashboardPage() {
     }).format(amount)
   }
 
-  // ── Loading State ──────────────────────────────────────────
+  // ── Loading State ───────────────────────────────────────────────
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -235,7 +235,7 @@ export default function AdminDashboardPage() {
     )
   }
 
-  // ── Error State ────────────────────────────────────────────
+  // ── Error State ────────────────────────────────────────────────
   if (error) {
     return (
       <div>
@@ -258,7 +258,7 @@ export default function AdminDashboardPage() {
     )
   }
 
-  // ── Main Dashboard ─────────────────────────────────────────
+  // ── Main Dashboard ───────────────────────────────────────────────
   return (
     <div>
       <div className="mb-8">
@@ -393,7 +393,7 @@ export default function AdminDashboardPage() {
                     return (
                       <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3">
                         <p className="text-sm font-medium text-gray-900">{payload[0].name}</p>
-                        <p className="text-sm text-gray-600">{payload[0].value.toLocaleString()} bookings</p>
+                        <p className="text-sm text-gray-600">{payload[0].value?.toLocaleString()} bookings</p>
                       </div>
                     )
                   }
