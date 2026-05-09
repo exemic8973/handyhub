@@ -3,11 +3,7 @@ generator client {
 }
 
 datasource db {
-  // Production: PostgreSQL
-  // Set DATABASE_URL in your environment:
-  //   postgresql://USER:PASSWORD@HOST:5432/DB_NAME?sslmode=require
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum UserRole {
