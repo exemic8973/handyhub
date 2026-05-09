@@ -1,0 +1,4 @@
+{
+  "build_command": "npx prisma db push && npm run build",
+  "start_command": "npm start"
+}
