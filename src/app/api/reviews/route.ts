@@ -112,8 +112,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
-    const userId = (session.user as any).id as string
-    const userRole = (session.user as any).role as string
+    const userId = session.user.id
+    const userRole = session.user.role
 
     if (userRole !== 'CUSTOMER') {
       return NextResponse.json(

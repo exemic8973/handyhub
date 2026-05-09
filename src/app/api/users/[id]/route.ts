@@ -14,8 +14,8 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const currentUserId = (session.user as any).id as string
-    const currentUserRole = (session.user as any).role as string
+    const currentUserId = session.user.id
+    const currentUserRole = session.user.role
     const targetId = params.id
 
     // Users can only view their own profile; Admin can view any
@@ -41,17 +41,6 @@ export async function GET(
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Compute average rating from reviews if the user has any
-    const reviews = await prisma.review.findMany({
-      where: { targetId: user.id },
-      select: { rating: true }
-    })
-
-    const averageRating =
-      reviews.length > 0
-        ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-        : null
-
     // Exclude sensitive fields
     const {
       passwordHash: _ph,
@@ -60,11 +49,15 @@ export async function GET(
       ...safeUser
     } = user
 
+    // Use the cached rating/totalReviews from HandymanProfile (maintained by recalculateHandymanRating)
+    const averageRating = user.handymanProfile?.rating ?? null
+    const totalReviews = user.handymanProfile?.totalReviews ?? user._count.reviewsReceived
+
     return NextResponse.json({
       user: safeUser,
       stats: {
         averageRating,
-        totalReviews: reviews.length,
+        totalReviews,
         bookingsAsCustomer: user._count.bookingsAsCustomer,
         bookingsAsHandyman: user._count.bookingsAsHandyman
       }
@@ -89,8 +82,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const currentUserId = (session.user as any).id as string
-    const currentUserRole = (session.user as any).role as string
+    const currentUserId = session.user.id
+    const currentUserRole = session.user.role
     const targetId = params.id
 
     // Users can only update their own profile; Admin can update any

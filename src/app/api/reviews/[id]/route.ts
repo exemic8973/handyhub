@@ -34,7 +34,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
-    const userId = (session.user as any).id as string
+    const userId = session.user.id
     const reviewId = params.id
 
     // Find the review
@@ -139,8 +139,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
-    const userId = (session.user as any).id as string
-    const userRole = (session.user as any).role as string
+    const userId = session.user.id
+    const userRole = session.user.role
     const reviewId = params.id
 
     const review = await prisma.review.findUnique({
