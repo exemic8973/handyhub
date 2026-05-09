@@ -19,7 +19,6 @@ export async function GET(request: Request) {
     const status = searchParams.get('status')
     const limit = searchParams.get('limit')
 
-    // ── Build where clause based on role ──────────────────────────────────
     const where: Record<string, unknown> = {}
 
     if (userRole === 'CUSTOMER') {
@@ -27,14 +26,12 @@ export async function GET(request: Request) {
     } else if (userRole === 'HANDYMAN') {
       where.handymanId = userId
     }
-    // ADMIN: no userId filter → returns all
 
     if (status) {
       where.status = status
     }
 
-    // ── Query ─────────────────────────────────────────────────────────────
-    const take = limit ? parseInt(limit, 10) : undefined
+    const take = limit ? Math.min(Math.max(1, parseInt(limit, 10)), 100) : undefined
 
     const bookings = await prisma.booking.findMany({
       where: where as any,
@@ -66,17 +63,8 @@ export async function POST(request: Request) {
 
     const userId = session.user.id
     const body = await request.json()
-    const {
-      serviceId,
-      scheduledDate,
-      scheduledTime,
-      address,
-      description,
-      notes,
-      duration,
-    } = body
+    const { serviceId, scheduledDate, scheduledTime, address, description, notes, duration } = body
 
-    // ── Validate required fields ──────────────────────────────────────────
     if (!serviceId || !scheduledDate || !scheduledTime || !address) {
       return NextResponse.json(
         { error: 'Missing required fields: serviceId, scheduledDate, scheduledTime, address' },
@@ -84,16 +72,14 @@ export async function POST(request: Request) {
       )
     }
 
-    // ── Validate the service exists ───────────────────────────────────────
     const service = await prisma.service.findUnique({ where: { id: serviceId } })
     if (!service) {
       return NextResponse.json({ error: 'Service not found' }, { status: 404 })
     }
 
-    // ── Find an available handyman who offers this service ────────────────
     // Convert scheduledDate to ISO day of week: 1=Monday … 7=Sunday
     const date = new Date(scheduledDate)
-    const jsDay = date.getDay() // 0=Sun … 6=Sat
+    const jsDay = date.getDay()
     const isoDay = jsDay === 0 ? 7 : jsDay
 
     const handymanService = await prisma.handymanService.findFirst({
@@ -112,11 +98,7 @@ export async function POST(request: Request) {
           },
         },
       },
-      include: {
-        handyman: {
-          include: { user: true },
-        },
-      },
+      include: { handyman: { include: { user: true } } },
       orderBy: { createdAt: 'asc' },
     })
 
@@ -127,13 +109,10 @@ export async function POST(request: Request) {
       )
     }
 
-    // ── Calculate totalPrice ──────────────────────────────────────────────
     const bookingDuration = duration ?? 1
-    const rate =
-      handymanService.customPrice ?? handymanService.handyman.hourlyRate ?? 0
+    const rate = handymanService.customPrice ?? handymanService.handyman.hourlyRate ?? 0
     const totalPrice = rate * bookingDuration
 
-    // ── Create booking ────────────────────────────────────────────────────
     const booking = await prisma.booking.create({
       data: {
         customerId: userId,

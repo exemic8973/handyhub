@@ -6,11 +6,14 @@ const nextConfig = {
     },
   },
   images: {
-    domains: ['localhost', 'res.cloudinary.com'],
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '**',
+        hostname: 'res.cloudinary.com',
+      },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
       },
     ],
   },
