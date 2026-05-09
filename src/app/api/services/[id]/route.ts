@@ -39,7 +39,6 @@ export async function GET(
       )
     }
 
-    // Reshape handymen to include profile + user name + rating + customPrice
     const handymenWithDetails = service.handymen.map((hs) => ({
       id: hs.handyman.id,
       userId: hs.handyman.userId,
@@ -89,7 +88,7 @@ export async function PUT(
       )
     }
 
-    if ((session.user as any).role !== 'ADMIN') {
+    if (session.user.role !== 'ADMIN') {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
@@ -111,7 +110,6 @@ export async function PUT(
       )
     }
 
-    // If name is being changed, check for uniqueness
     if (name && name !== existing.name) {
       const duplicate = await prisma.service.findUnique({
         where: { name }
@@ -124,7 +122,6 @@ export async function PUT(
       }
     }
 
-    // If category is provided, validate it
     if (category && !Object.values(ServiceCategory).includes(category as ServiceCategory)) {
       return NextResponse.json(
         { error: `Invalid category. Must be one of: ${Object.values(ServiceCategory).join(', ')}` },
@@ -169,7 +166,7 @@ export async function DELETE(
       )
     }
 
-    if ((session.user as any).role !== 'ADMIN') {
+    if (session.user.role !== 'ADMIN') {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }

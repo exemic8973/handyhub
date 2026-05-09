@@ -11,7 +11,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const userId = (session.user as any).id as string
+    const userId = session.user.id
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -31,7 +31,6 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Compute average rating from reviews if the user has any
     const reviews = await prisma.review.findMany({
       where: { targetId: user.id },
       select: { rating: true }
@@ -42,7 +41,6 @@ export async function GET() {
         ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
         : null
 
-    // Exclude sensitive fields
     const {
       passwordHash: _ph,
       resetToken: _rt,

@@ -12,8 +12,6 @@ const ALL_STATUSES: BookingStatus[] = [
   'CANCELLED',
 ]
 
-// ── GET /api/bookings/[id] ───────────────────────────────────────────────────
-
 export async function GET(
   request: Request,
   { params }: { params: { id: string } },
@@ -24,8 +22,8 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const userId = (session.user as any).id as string
-    const userRole = (session.user as any).role as string
+    const userId = session.user.id
+    const userRole = session.user.role
     const bookingId = params.id
 
     const booking = await prisma.booking.findUnique({
@@ -41,7 +39,6 @@ export async function GET(
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
     }
 
-    // Must belong to the authenticated user OR user is ADMIN
     if (userRole !== 'ADMIN' && booking.customerId !== userId && booking.handymanId !== userId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
@@ -54,8 +51,6 @@ export async function GET(
   }
 }
 
-// ── PUT /api/bookings/[id] ───────────────────────────────────────────────────
-
 export async function PUT(
   request: Request,
   { params }: { params: { id: string } },
@@ -66,8 +61,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const userId = (session.user as any).id as string
-    const userRole = (session.user as any).role as string
+    const userId = session.user.id
+    const userRole = session.user.role
     const bookingId = params.id
 
     const body = await request.json()
@@ -84,26 +79,19 @@ export async function PUT(
       )
     }
 
-    // ── Fetch the booking ─────────────────────────────────────────────────
     const booking = await prisma.booking.findUnique({ where: { id: bookingId } })
     if (!booking) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
     }
 
-    // ── Role-based status transition validation ───────────────────────────
     if (userRole === 'CUSTOMER') {
-      // CUSTOMER can only cancel their own bookings
       if (booking.customerId !== userId) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
       if (status !== 'CANCELLED') {
-        return NextResponse.json(
-          { error: 'Customers can only cancel bookings' },
-          { status: 403 },
-        )
+        return NextResponse.json({ error: 'Customers can only cancel bookings' }, { status: 403 })
       }
     } else if (userRole === 'HANDYMAN') {
-      // HANDYMAN can only update bookings assigned to them
       if (booking.handymanId !== userId) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
@@ -115,9 +103,9 @@ export async function PUT(
         )
       }
     }
-    // ADMIN: any status allowed, no ownership check required
 
-    // ── Update ────────────────────────────────────────────────────────────
+    const isCompletingNow = status === 'COMPLETED' && booking.status !== 'COMPLETED'
+
     const updated = await prisma.booking.update({
       where: { id: bookingId },
       data: { status: status as BookingStatus },
@@ -127,6 +115,13 @@ export async function PUT(
         handyman: { select: { firstName: true, lastName: true } },
       },
     })
+
+    if (isCompletingNow) {
+      await prisma.handymanProfile.update({
+        where: { userId: booking.handymanId },
+        data: { totalJobs: { increment: 1 } },
+      })
+    }
 
     return NextResponse.json({ booking: updated })
   } catch (error) {

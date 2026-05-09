@@ -1,4 +1,4 @@
-import { NextAuthOptions } from 'next-auth'
+import { DefaultSession, NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import prisma from './prisma'
@@ -61,8 +61,8 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).role = token.role as string
-        (session.user as any).id = token.id as string
+        session.user.role = token.role as string
+        session.user.id = token.id as string
       }
       return session
     }
@@ -79,6 +79,12 @@ export const authOptions: NextAuthOptions = {
 declare module 'next-auth' {
   interface User {
     role?: string
+  }
+  interface Session {
+    user: {
+      id: string
+      role: string
+    } & DefaultSession['user']
   }
 }
 

@@ -29,8 +29,15 @@ export async function POST(request: Request) {
       )
     }
 
-    // Validate role
-    const userRole: UserRole = (role === 'HANDYMAN' || role === 'ADMIN') ? role : 'CUSTOMER'
+    if (password.length < 8) {
+      return NextResponse.json(
+        { error: 'Password must be at least 8 characters' },
+        { status: 400 }
+      )
+    }
+
+    // Only CUSTOMER and HANDYMAN can self-register; ADMIN accounts are created by existing admins
+    const userRole: UserRole = role === 'HANDYMAN' ? 'HANDYMAN' : 'CUSTOMER'
 
     const existingUser = await prisma.user.findUnique({
       where: {
@@ -66,8 +73,6 @@ export async function POST(request: Request) {
         }
       })
     }
-
-    console.log('User created successfully:', user.id)
 
     return NextResponse.json(
       { 

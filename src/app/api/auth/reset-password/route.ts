@@ -38,25 +38,18 @@ export async function POST(request: Request) {
 
     // Check if token has expired
     if (!user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
-      // Clear the expired token
       await prisma.user.update({
         where: { id: user.id },
-        data: {
-          resetToken: null,
-          resetTokenExpiry: null
-        }
+        data: { resetToken: null, resetTokenExpiry: null }
       })
-
       return NextResponse.json(
         { error: 'Reset token has expired. Please request a new one.' },
         { status: 400 }
       )
     }
 
-    // Hash the new password
     const hashedPassword = await bcrypt.hash(password, 12)
 
-    // Update the user: set new password and clear the reset token
     await prisma.user.update({
       where: { id: user.id },
       data: {
@@ -65,8 +58,6 @@ export async function POST(request: Request) {
         resetTokenExpiry: null
       }
     })
-
-    console.log(`[reset-password] Password reset successful for user: ${user.email}`)
 
     return NextResponse.json(
       { message: 'Password has been reset successfully. You can now log in with your new password.' },

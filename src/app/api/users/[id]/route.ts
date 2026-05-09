@@ -14,11 +14,10 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const currentUserId = (session.user as any).id as string
-    const currentUserRole = (session.user as any).role as string
+    const currentUserId = session.user.id
+    const currentUserRole = session.user.role
     const targetId = params.id
 
-    // Users can only view their own profile; Admin can view any
     if (currentUserId !== targetId && currentUserRole !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
@@ -41,18 +40,6 @@ export async function GET(
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Compute average rating from reviews if the user has any
-    const reviews = await prisma.review.findMany({
-      where: { targetId: user.id },
-      select: { rating: true }
-    })
-
-    const averageRating =
-      reviews.length > 0
-        ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-        : null
-
-    // Exclude sensitive fields
     const {
       passwordHash: _ph,
       resetToken: _rt,
@@ -60,11 +47,14 @@ export async function GET(
       ...safeUser
     } = user
 
+    const averageRating = user.handymanProfile?.rating ?? null
+    const totalReviews = user.handymanProfile?.totalReviews ?? user._count.reviewsReceived
+
     return NextResponse.json({
       user: safeUser,
       stats: {
         averageRating,
-        totalReviews: reviews.length,
+        totalReviews,
         bookingsAsCustomer: user._count.bookingsAsCustomer,
         bookingsAsHandyman: user._count.bookingsAsHandyman
       }
@@ -89,11 +79,10 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const currentUserId = (session.user as any).id as string
-    const currentUserRole = (session.user as any).role as string
+    const currentUserId = session.user.id
+    const currentUserRole = session.user.role
     const targetId = params.id
 
-    // Users can only update their own profile; Admin can update any
     if (currentUserId !== targetId && currentUserRole !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
@@ -101,7 +90,6 @@ export async function PUT(
     const body = await request.json()
     const isAdmin = currentUserRole === 'ADMIN'
 
-    // Build update data — only allow specific fields
     const updateData: any = {}
 
     const allowedFields = ['firstName', 'lastName', 'phone', 'avatar']
@@ -111,7 +99,6 @@ export async function PUT(
       }
     }
 
-    // Admin-only fields
     if (isAdmin) {
       if (body.role !== undefined) {
         const validRoles = ['CUSTOMER', 'HANDYMAN', 'ADMIN']

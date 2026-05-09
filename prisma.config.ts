@@ -4,9 +4,6 @@ import { defineConfig } from 'prisma/config'
 export default defineConfig({
   schema: path.join('prisma', 'schema.prisma'),
   migrate: {
-    datasourceUrl: 'file:./prisma/dev.db'
+    datasourceUrl: process.env.DATABASE_URL!,
   },
-  datasource: {
-    url: 'file:./prisma/dev.db'
-  }
 })
