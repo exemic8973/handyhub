@@ -1,6 +1,16 @@
 node_modules
 # Keep environment variables out of version control
 .env
+.env.local
+.env.production
+
+# Local SQLite database
+prisma/dev.db
+prisma/dev.db-journal
+
+# IDE / AI tools
+.claude/
+.deepseek/
 
 # generated
 /generated/prisma

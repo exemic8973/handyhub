@@ -14,66 +14,11 @@ import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts'
-
-interface DashboardStats {
-  totalUsers: number
-  totalHandymen: number
-  totalBookings: number
-  totalRevenue: number
-  userGrowth: number
-  handymanGrowth: number
-  bookingGrowth: number
-  revenueGrowth: number
-}
-
-interface RecentBooking {
-  id: string
-  customer: string
-  handyman: string
-  service: string
-  status: string
-  amount: number
-  date: string
-}
-
-interface TopHandyman {
-  id: string
-  name: string
-  rating: number
-  jobs: number
-  revenue: number
-}
-
-// Static chart data (wired to real API in Phase 4)
-const revenueData = [
-  { month: 'Oct', revenue: 52000 },
-  { month: 'Nov', revenue: 61000 },
-  { month: 'Dec', revenue: 78000 },
-  { month: 'Jan', revenue: 65000 },
-  { month: 'Feb', revenue: 83000 },
-  { month: 'Mar', revenue: 95000 },
-]
-
-const categoryData = [
-  { name: 'Plumbing', bookings: 1245 },
-  { name: 'Electrical', bookings: 980 },
-  { name: 'Carpentry', bookings: 756 },
-  { name: 'Painting', bookings: 890 },
-  { name: 'Cleaning', bookings: 1102 },
-  { name: 'HVAC', bookings: 645 },
-  { name: 'Appliance', bookings: 523 },
-  { name: 'Locksmith', bookings: 312 },
-]
-
-const statusData = [
-  { name: 'Completed', value: 5230 },
-  { name: 'In Progress', value: 1245 },
-  { name: 'Confirmed', value: 980 },
-  { name: 'Pending', value: 756 },
-  { name: 'Cancelled', value: 510 },
-]
+import { StatusBadge, formatCurrency, formatShortDate } from '@/lib/utils'
+import type { DashboardStats, RecentBooking, TopHandyman } from '@/lib/types'
 
 const STATUS_COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444']
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 const CurrencyTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -105,17 +50,14 @@ const BookingsTooltip = ({ active, payload, label }: any) => {
 
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<DashboardStats>({
-    totalUsers: 0,
-    totalHandymen: 0,
-    totalBookings: 0,
-    totalRevenue: 0,
-    userGrowth: 0,
-    handymanGrowth: 0,
-    bookingGrowth: 0,
-    revenueGrowth: 0,
+    totalUsers: 0, totalHandymen: 0, totalBookings: 0, totalRevenue: 0,
+    userGrowth: 0, handymanGrowth: 0, bookingGrowth: 0, revenueGrowth: 0,
   })
   const [recentBookings, setRecentBookings] = useState<RecentBooking[]>([])
   const [topHandymen, setTopHandymen] = useState<TopHandyman[]>([])
+  const [revenueData, setRevenueData] = useState<{ month: string; revenue: number }[]>([])
+  const [categoryData, setCategoryData] = useState<{ name: string; bookings: number }[]>([])
+  const [statusData, setStatusData] = useState<{ name: string; value: number }[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -178,9 +120,30 @@ export default function AdminDashboardPage() {
         name: `${h.user?.firstName ?? ''} ${h.user?.lastName ?? ''}`,
         rating: h.rating ?? 0,
         jobs: h.totalJobs ?? 0,
-        revenue: (h.hourlyRate ?? 0) * (h.totalJobs ?? 0) * 1.5, // rough estimate
+        revenue: (h.hourlyRate ?? 0) * (h.totalJobs ?? 0) * 1.5,
       }))
       setTopHandymen(top)
+
+      // Chart data — computed from actual bookings
+      const now = new Date()
+      const monthMap = new Map<string, number>()
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        monthMap.set(MONTHS[d.getMonth()], 0)
+      }
+      const catMap = new Map<string, number>()
+      const statusMap = new Map<string, number>()
+      for (const b of bookings) {
+        const d = new Date(b.scheduledDate || b.createdAt)
+        const key = MONTHS[d.getMonth()]
+        if (monthMap.has(key)) monthMap.set(key, (monthMap.get(key) || 0) + (b.totalPrice || 0))
+        const cat = b.service?.name ?? 'Unknown'
+        catMap.set(cat, (catMap.get(cat) || 0) + 1)
+        statusMap.set(b.status, (statusMap.get(b.status) || 0) + 1)
+      }
+      setRevenueData(Array.from(monthMap.entries()).map(([month, revenue]) => ({ month, revenue })))
+      setCategoryData(Array.from(catMap.entries()).map(([name, bookings]) => ({ name, bookings })))
+      setStatusData(Array.from(statusMap.entries()).map(([name, value]) => ({ name, value })))
     } catch (err) {
       console.error('Admin dashboard fetch error:', err)
       setError(err instanceof Error ? err.message : 'Failed to load dashboard data')
@@ -192,39 +155,6 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'COMPLETED':
-        return 'bg-green-100 text-green-800'
-      case 'IN_PROGRESS':
-        return 'bg-blue-100 text-blue-800'
-      case 'PENDING':
-        return 'bg-yellow-100 text-yellow-800'
-      case 'CONFIRMED':
-        return 'bg-purple-100 text-purple-800'
-      case 'CANCELLED':
-        return 'bg-red-100 text-red-800'
-      default:
-        return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return ''
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    })
-  }
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-    }).format(amount)
-  }
 
   // ── Loading State ───────────────────────────────────────────────
   if (loading) {
@@ -411,9 +341,9 @@ export default function AdminDashboardPage() {
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-900">Recent Bookings</h3>
-            <button className="text-primary-600 hover:text-primary-700 text-sm font-medium">
+            <a href="/admin/bookings" className="text-primary-600 hover:text-primary-700 text-sm font-medium">
               View All
-            </button>
+            </a>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -446,7 +376,7 @@ export default function AdminDashboardPage() {
                         <div className="text-sm text-gray-900">{booking.service}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`badge ${getStatusColor(booking.status)}`}>{booking.status}</span>
+                        <StatusBadge status={booking.status} />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         ${booking.amount}

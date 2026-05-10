@@ -136,7 +136,7 @@ export default function AdminClient({ user, children }: AdminClientProps) {
       </div>
 
       {/* Main content */}
-      <div className="lg:pl-64">
+      <div className="lg:pl-64 h-screen overflow-y-auto">
         {/* Top bar */}
         <div className="sticky top-0 z-30 bg-white border-b border-gray-200">
           <div className="flex items-center justify-between h-16 px-4">

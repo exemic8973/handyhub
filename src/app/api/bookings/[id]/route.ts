@@ -30,7 +30,7 @@ export async function GET(
       where: { id: bookingId },
       include: {
         service: { select: { name: true, category: true } },
-        customer: { select: { firstName: true, lastName: true, email: true, phone: true } },
+        customer: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
         handyman: { select: { firstName: true, lastName: true, email: true, phone: true } },
       },
     })
@@ -88,14 +88,27 @@ export async function PUT(
       if (booking.customerId !== userId) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
-      if (status !== 'CANCELLED') {
-        return NextResponse.json({ error: 'Customers can only cancel bookings' }, { status: 403 })
+      // Customers can cancel any active booking, or complete after handyman marks done
+      if (status === 'CANCELLED') {
+        // allowed
+      } else if (status === 'COMPLETED' && booking.status === 'IN_PROGRESS') {
+        // Check if handyman requested completion
+        const requested = await prisma.notification.findFirst({
+          where: { userId, type: 'completion_requested', createdAt: { gte: new Date(Date.now() - 7 * 86400000) } },
+          orderBy: { createdAt: 'desc' },
+        })
+        if (!requested) {
+          return NextResponse.json({ error: 'Wait for the handyman to mark the job as done first' }, { status: 403 })
+        }
+      } else {
+        return NextResponse.json({ error: 'Customers can only cancel or confirm completion' }, { status: 403 })
       }
     } else if (userRole === 'HANDYMAN') {
       if (booking.handymanId !== userId) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
-      const allowed: BookingStatus[] = ['CONFIRMED', 'IN_PROGRESS', 'COMPLETED']
+      // Handymen can't directly complete — must request customer confirmation
+      const allowed: BookingStatus[] = ['CONFIRMED', 'IN_PROGRESS']
       if (!allowed.includes(status as BookingStatus)) {
         return NextResponse.json(
           { error: `Handymen can only set status to: ${allowed.join(', ')}` },
@@ -123,9 +136,68 @@ export async function PUT(
       })
     }
 
+    // Notify the customer about status change
+    const statusMessages: Record<string, string> = {
+      CONFIRMED: `Your booking for ${updated.service.name} has been confirmed by ${updated.handyman.firstName}.`,
+      CANCELLED: `Your booking for ${updated.service.name} was cancelled.`,
+      IN_PROGRESS: `${updated.handyman.firstName} has started working on your ${updated.service.name} booking.`,
+      COMPLETED: `Your ${updated.service.name} booking has been completed by ${updated.handyman.firstName}.`,
+    }
+    const msg = statusMessages[status]
+    if (msg) {
+      await prisma.notification.create({
+        data: {
+          userId: booking.customerId,
+          title: `Booking ${status.toLowerCase().replace('_', ' ')}`,
+          message: msg,
+          type: `booking_${status.toLowerCase()}`,
+          link: '/dashboard/bookings',
+        },
+      })
+    }
+
     return NextResponse.json({ booking: updated })
   } catch (error) {
     console.error('PUT /api/bookings/[id] error:', error)
+    const message = error instanceof Error ? error.message : 'Internal server error'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
+}
+
+// ── DELETE /api/bookings/[id] ───────────────────────────────────────────────
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } },
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const booking = await prisma.booking.findUnique({ where: { id: params.id } })
+    if (!booking) {
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+    }
+
+    const updated = await prisma.booking.update({
+      where: { id: params.id },
+      data: { status: 'CANCELLED' as BookingStatus },
+      include: {
+        service: { select: { name: true } },
+        customer: { select: { firstName: true, lastName: true } },
+        handyman: { select: { firstName: true, lastName: true } },
+      },
+    })
+
+    return NextResponse.json({ booking: updated })
+  } catch (error) {
+    console.error('DELETE /api/bookings/[id] error:', error)
     const message = error instanceof Error ? error.message : 'Internal server error'
     return NextResponse.json({ error: message }, { status: 500 })
   }

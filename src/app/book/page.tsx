@@ -5,19 +5,8 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useToast } from '@/lib/toast'
 import { ArrowLeftIcon, ArrowRightIcon, CheckCircleIcon, CalendarIcon, ClockIcon, MapPinIcon, StarIcon } from '@/lib/icons'
-
-interface ServiceItem { id: string; name: string; description: string | null; category: string; icon: string | null }
-interface HandymanItem {
-  id: string
-  user: { firstName: string; lastName: string }
-  businessName: string | null
-  rating: number
-  totalJobs: number
-  hourlyRate: number | null
-  city: string | null
-  state: string | null
-  services: { service: { name: string; category: string } }[]
-}
+import { StarRating } from '@/lib/utils'
+import type { ServiceItem, HandymanItem } from '@/lib/types'
 
 const STEPS = ['Service', 'Handyman', 'Schedule', 'Confirm']
 const TIME_SLOTS = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00']
@@ -76,7 +65,19 @@ export default function BookPage() {
       const res = await fetch(`/api/handymen?service=${serviceCategory}&sort=rating`)
       if (!res.ok) throw new Error('Failed to load handymen')
       const data = await res.json()
-      const list: HandymanItem[] = data.handymen ?? []
+      const list: HandymanItem[] = (data.handymen ?? []).map((h: any) => ({
+        id: h.id,
+        user: { firstName: h.firstName ?? '', lastName: h.lastName ?? '' },
+        businessName: h.handymanProfile?.businessName ?? null,
+        bio: h.handymanProfile?.bio ?? null,
+        rating: h.handymanProfile?.rating ?? 0,
+        totalReviews: h.handymanProfile?.totalReviews ?? 0,
+        totalJobs: h.handymanProfile?.totalJobs ?? 0,
+        hourlyRate: h.handymanProfile?.hourlyRate ?? null,
+        city: h.handymanProfile?.city ?? null,
+        state: h.handymanProfile?.state ?? null,
+        services: h.handymanProfile?.services ?? [],
+      }))
 
       // If handyman pre-selected from URL, auto-select
       if (preSelectedHandymanId) {
@@ -127,6 +128,7 @@ export default function BookPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           serviceId: selectedService.id,
+          handymanId: selectedHandyman.id,
           scheduledDate,
           scheduledTime,
           duration,
@@ -229,14 +231,19 @@ export default function BookPage() {
               <button
                 key={svc.id}
                 onClick={() => handleSelectService(svc)}
-                className={`text-left p-5 rounded-xl border-2 transition-all ${
+                className={`text-left p-5 rounded-xl border-2 transition-all relative ${
                   selectedService?.id === svc.id
-                    ? 'border-primary-500 bg-primary-50 shadow-sm'
+                    ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-500'
                     : 'border-gray-200 hover:border-gray-300 bg-white'
                 }`}
               >
-                <h3 className="font-semibold text-gray-900">{svc.name}</h3>
-                <p className="text-sm text-gray-500 mt-1 line-clamp-2">{svc.description}</p>
+                {selectedService?.id === svc.id && (
+                  <span className="absolute top-3 right-3 text-primary-600">
+                    <CheckCircleIcon className="w-5 h-5" />
+                  </span>
+                )}
+                <h3 className={`font-semibold ${selectedService?.id === svc.id ? 'text-primary-700' : 'text-gray-900'}`}>{svc.name}</h3>
+                <p className={`text-sm mt-1 line-clamp-2 ${selectedService?.id === svc.id ? 'text-primary-700 font-medium' : 'text-gray-500'}`}>{svc.description}</p>
               </button>
             ))}
           </div>
@@ -256,22 +263,27 @@ export default function BookPage() {
               <button
                 key={h.id}
                 onClick={() => setSelectedHandyman(h)}
-                className={`w-full text-left p-5 rounded-xl border-2 transition-all ${
+                className={`w-full text-left p-5 rounded-xl border-2 transition-all relative ${
                   selectedHandyman?.id === h.id
-                    ? 'border-primary-500 bg-primary-50 shadow-sm'
+                    ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-500'
                     : 'border-gray-200 hover:border-gray-300 bg-white'
                 }`}
               >
+                {selectedHandyman?.id === h.id && (
+                  <span className="absolute top-3 right-3 text-primary-600">
+                    <CheckCircleIcon className="w-5 h-5" />
+                  </span>
+                )}
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="font-semibold text-gray-900">
+                    <h3 className={`font-semibold ${selectedHandyman?.id === h.id ? 'text-primary-700' : 'text-gray-900'}`}>
                       {h.user.firstName} {h.user.lastName}
                     </h3>
                     {h.businessName && <p className="text-sm text-gray-500">{h.businessName}</p>}
                     <div className="flex items-center gap-3 mt-1 text-sm text-gray-500">
                       <span className="flex items-center">
-                        <StarIcon className="w-4 h-4 text-yellow-400 mr-0.5" />
-                        {h.rating?.toFixed(1)}
+                        <StarRating rating={h.rating} />
+                        <span className="ml-1">{h.rating?.toFixed(1)}</span>
                       </span>
                       <span>{h.totalJobs} jobs</span>
                       {(h.city || h.state) && (

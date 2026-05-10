@@ -4,27 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { StarIcon, MapPinIcon, SearchIcon, WrenchIcon } from '@/lib/icons'
-
-interface Handyman {
-  id: string
-  user: { firstName: string; lastName: string }
-  businessName: string | null
-  bio: string | null
-  rating: number
-  totalReviews: number
-  totalJobs: number
-  hourlyRate: number | null
-  city: string | null
-  state: string | null
-  services: { service: { name: string; category: string }; customPrice: number | null }[]
-}
-
-interface Service {
-  id: string
-  name: string
-  category: string
-  _count: { handymen: number }
-}
+import { StarRating } from '@/lib/utils'
+import type { HandymanItem, ServiceItem } from '@/lib/types'
 
 const SERVICE_CATEGORIES = [
   'ALL', 'PLUMBING', 'ELECTRICAL', 'CARPENTRY', 'PAINTING',
@@ -35,8 +16,8 @@ export default function HandymenPage() {
   const searchParams = useSearchParams()
   const initialCategory = searchParams.get('service') || 'ALL'
 
-  const [handymen, setHandymen] = useState<Handyman[]>([])
-  const [services, setServices] = useState<Service[]>([])
+  const [handymen, setHandymen] = useState<HandymanItem[]>([])
+  const [services, setServices] = useState<ServiceItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
@@ -60,7 +41,20 @@ export default function HandymenPage() {
       const res = await fetch(`/api/handymen?${params}`)
       if (!res.ok) throw new Error('Failed to load handymen')
       const data = await res.json()
-      setHandymen(data.handymen ?? [])
+      const list: HandymanItem[] = (data.handymen ?? []).map((h: any) => ({
+        id: h.id,
+        user: { firstName: h.firstName ?? '', lastName: h.lastName ?? '' },
+        businessName: h.handymanProfile?.businessName ?? null,
+        bio: h.handymanProfile?.bio ?? null,
+        rating: h.handymanProfile?.rating ?? 0,
+        totalReviews: h.handymanProfile?.totalReviews ?? 0,
+        totalJobs: h.handymanProfile?.totalJobs ?? 0,
+        hourlyRate: h.handymanProfile?.hourlyRate ?? null,
+        city: h.handymanProfile?.city ?? null,
+        state: h.handymanProfile?.state ?? null,
+        services: h.handymanProfile?.services ?? [],
+      }))
+      setHandymen(list)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
@@ -87,24 +81,8 @@ export default function HandymenPage() {
     return () => clearTimeout(timer)
   }, [fetchHandymen])
 
-  const getInitials = (h: Handyman) =>
+  const getInitials = (h: HandymanItem) =>
     `${h.user.firstName?.[0] || ''}${h.user.lastName?.[0] || ''}`
-
-  const renderStars = (rating: number) => (
-    <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <svg
-          key={star}
-          className={`w-4 h-4 ${star <= Math.round(rating) ? 'text-yellow-400' : 'text-gray-200'}`}
-          fill="currentColor"
-          viewBox="0 0 20 20"
-        >
-          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-        </svg>
-      ))}
-      <span className="text-sm text-gray-500 ml-1">({rating.toFixed(1)})</span>
-    </div>
-  )
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -277,7 +255,10 @@ export default function HandymenPage() {
 
                     {/* Rating + Jobs */}
                     <div className="flex items-center gap-4 mb-3">
-                      {renderStars(h.rating)}
+                      <div className="flex items-center gap-1">
+                        <StarRating rating={h.rating} />
+                        <span className="text-sm text-gray-500">({h.rating.toFixed(1)})</span>
+                      </div>
                       <span className="text-xs text-gray-400">{h.totalReviews} reviews</span>
                     </div>
 

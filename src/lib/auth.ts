@@ -1,4 +1,4 @@
-import { DefaultSession, NextAuthOptions } from 'next-auth'
+import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import prisma from './prisma'
@@ -74,23 +74,4 @@ export const authOptions: NextAuthOptions = {
     strategy: 'jwt'
   },
   secret: process.env.NEXTAUTH_SECRET
-}
-
-declare module 'next-auth' {
-  interface User {
-    role?: string
-  }
-  interface Session {
-    user: {
-      id: string
-      role: string
-    } & DefaultSession['user']
-  }
-}
-
-declare module 'next-auth/jwt' {
-  interface JWT {
-    role?: string
-    id?: string
-  }
 }

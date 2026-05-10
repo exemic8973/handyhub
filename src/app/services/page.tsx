@@ -28,7 +28,7 @@ type Category = (typeof CATEGORIES)[number]
 
 // ── Category colour map (matches homepage design system) ────────
 
-const categoryColors: Record<Category, { gradient: string; bg: string; text: string }> = {
+const categoryColors: Record<string, { gradient: string; bg: string; text: string }> = {
   PLUMBING:         { gradient: 'from-blue-500 to-blue-600',       bg: 'bg-blue-50',       text: 'text-blue-600' },
   ELECTRICAL:       { gradient: 'from-yellow-500 to-orange-500',   bg: 'bg-yellow-50',     text: 'text-yellow-600' },
   CARPENTRY:        { gradient: 'from-amber-600 to-amber-700',     bg: 'bg-amber-50',      text: 'text-amber-600' },
@@ -52,7 +52,7 @@ function formatCategory(cat: string) {
 
 // ── Icon picker from icon name string ───────────────────────────
 
-function resolveIcon(iconName: string | null | undefined, category: Category, className = 'w-8 h-8') {
+function resolveIcon(iconName: string | null | undefined, category: string, className = 'w-8 h-8') {
   const name = (iconName || '').toLowerCase()
 
   switch (name) {
@@ -79,16 +79,7 @@ function resolveIcon(iconName: string | null | undefined, category: Category, cl
   }
 }
 
-// ── Types ───────────────────────────────────────────────────────
-
-interface ServiceItem {
-  id: string
-  name: string
-  description: string | null
-  category: Category
-  icon: string | null
-  _count: { handymen: number }
-}
+import type { ServiceItem } from '@/lib/types'
 
 // ── Page component ──────────────────────────────────────────────
 

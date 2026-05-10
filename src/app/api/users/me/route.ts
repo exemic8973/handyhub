@@ -31,6 +31,29 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
+    // Auto-create handymanProfile if user is HANDYMAN but missing profile
+    if (user.role === 'HANDYMAN' && !user.handymanProfile) {
+      await prisma.handymanProfile.create({
+        data: { userId: user.id }
+      })
+      // Re-fetch with the new profile
+      const refreshed = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          handymanProfile: true,
+          _count: {
+            select: {
+              bookingsAsCustomer: true,
+              bookingsAsHandyman: true,
+              reviewsReceived: true
+            }
+          }
+        }
+      })
+      // Use refreshed user going forward
+      Object.assign(user, refreshed)
+    }
+
     // Compute average rating from reviews if the user has any
     const reviews = await prisma.review.findMany({
       where: { targetId: user.id },

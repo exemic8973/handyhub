@@ -120,16 +120,57 @@ export async function PUT(
       }
     }
 
-    if (Object.keys(updateData).length === 0) {
+    // Handyman profile fields
+    const profileFields = ['businessName', 'bio', 'city', 'state']
+    const profileUpdate: any = {}
+    for (const field of profileFields) {
+      if (body[field] !== undefined) profileUpdate[field] = body[field] || null
+    }
+    if (body.hourlyRate !== undefined) {
+      const rate = parseFloat(body.hourlyRate)
+      if (!isNaN(rate) && rate >= 0) profileUpdate.hourlyRate = rate
+    }
+    if (body.experience !== undefined) {
+      const exp = parseInt(body.experience, 10)
+      if (!isNaN(exp) && exp >= 0) profileUpdate.experience = exp
+    }
+
+    const hasProfileUpdate = Object.keys(profileUpdate).length > 0
+    const hasUserUpdate = Object.keys(updateData).length > 0
+
+    if (!hasUserUpdate && !hasProfileUpdate) {
       return NextResponse.json(
         { error: 'No valid fields to update' },
         { status: 400 }
       )
     }
 
-    const updatedUser = await prisma.user.update({
+    // Update user fields
+    if (hasUserUpdate) {
+      await prisma.user.update({
+        where: { id: targetId },
+        data: updateData,
+      })
+    }
+
+    // Update handyman profile fields
+    if (hasProfileUpdate) {
+      // Ensure profile exists
+      const profile = await prisma.handymanProfile.findUnique({ where: { userId: targetId } })
+      if (profile) {
+        await prisma.handymanProfile.update({
+          where: { userId: targetId },
+          data: profileUpdate,
+        })
+      } else if (isAdmin || currentUserRole === 'HANDYMAN') {
+        await prisma.handymanProfile.create({
+          data: { userId: targetId, ...profileUpdate },
+        })
+      }
+    }
+
+    const updatedUser = await prisma.user.findUnique({
       where: { id: targetId },
-      data: updateData,
       select: {
         id: true,
         email: true,
@@ -154,5 +195,40 @@ export async function PUT(
       { error: errorMessage },
       { status: 500 }
     )
+  }
+}
+
+// ── DELETE /api/users/[id] ──────────────────────────────────────────────────
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user || session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    if (session.user.id === params.id) {
+      return NextResponse.json(
+        { error: 'Cannot delete your own account' },
+        { status: 400 },
+      )
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: params.id } })
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    await prisma.user.delete({ where: { id: params.id } })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('DELETE /api/users/[id] error:', error)
+    const message = error instanceof Error ? error.message : 'Internal server error'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

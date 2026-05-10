@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
@@ -33,7 +33,9 @@ export default function DashboardLayout({
   const [user, setUser] = useState<User | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
   const pathname = usePathname()
+  const userMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     // Get user from session
@@ -49,7 +51,36 @@ export default function DashboardLayout({
       }
     }
     getUser()
+
+    const fetchUnread = async () => {
+      try {
+        const res = await fetch('/api/notifications?unreadOnly=true&limit=1')
+        if (res.ok) {
+          const data = await res.json()
+          setUnreadCount(data.unreadCount ?? 0)
+        }
+      } catch { /* non-critical */ }
+    }
+    fetchUnread()
+    const interval = setInterval(fetchUnread, 30000)
+    window.addEventListener('focus', fetchUnread)
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('focus', fetchUnread)
+    }
   }, [])
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false)
+      }
+    }
+    if (userMenuOpen) {
+      document.addEventListener('mousedown', handleClick)
+      return () => document.removeEventListener('mousedown', handleClick)
+    }
+  }, [userMenuOpen])
 
   const handleSignOut = async () => {
     await signOut({ callbackUrl: '/login' })
@@ -152,7 +183,7 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main content */}
-      <div className="lg:pl-72">
+      <div className="lg:pl-72 h-screen overflow-y-auto">
         {/* Top bar */}
         <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-lg border-b border-gray-100">
           <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
@@ -167,13 +198,18 @@ export default function DashboardLayout({
             
             <div className="flex items-center space-x-4">
               {/* Notifications */}
-              <button className="relative p-2 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+              <Link
+                href="/dashboard/notifications"
+                className="relative p-2 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              >
                 <BellIcon className="w-5 h-5" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white" />
-              </button>
+                {unreadCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white" />
+                )}
+              </Link>
               
               {/* User Menu (Desktop) */}
-              <div className="hidden lg:block relative">
+              <div className="hidden lg:block relative" ref={userMenuRef}>
                 <button 
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
                   className="flex items-center space-x-3 p-2 rounded-xl hover:bg-gray-100 transition-colors"
@@ -186,7 +222,7 @@ export default function DashboardLayout({
                 </button>
                 
                 {userMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 animate-scale-in">
+                  <div className="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-lg border border-gray-100 py-2 animate-scale-in z-[60]">
                     <Link href="/dashboard/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
                       Your Profile
                     </Link>

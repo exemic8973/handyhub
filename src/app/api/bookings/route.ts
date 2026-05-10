@@ -63,7 +63,7 @@ export async function POST(request: Request) {
 
     const userId = session.user.id
     const body = await request.json()
-    const { serviceId, scheduledDate, scheduledTime, address, description, notes, duration } = body
+    const { serviceId, handymanId, scheduledDate, scheduledTime, address, description, notes, duration } = body
 
     if (!serviceId || !scheduledDate || !scheduledTime || !address) {
       return NextResponse.json(
@@ -77,48 +77,82 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Service not found' }, { status: 404 })
     }
 
-    // Convert scheduledDate to ISO day of week: 1=Monday … 7=Sunday
-    const date = new Date(scheduledDate)
-    const jsDay = date.getDay()
-    const isoDay = jsDay === 0 ? 7 : jsDay
+    let assignedHandymanUserId: string
 
-    const handymanService = await prisma.handymanService.findFirst({
-      where: {
-        serviceId,
-        isActive: true,
-        handyman: {
-          isAvailable: true,
-          availability: {
-            some: {
-              dayOfWeek: isoDay,
-              isAvailable: true,
-              startTime: { lte: scheduledTime },
-              endTime: { gte: scheduledTime },
+    if (handymanId) {
+      // Customer selected a specific handyman — handymanId is the userId
+      const profile = await prisma.handymanProfile.findUnique({
+        where: { userId: handymanId },
+        select: { id: true, userId: true, isAvailable: true },
+      })
+      if (!profile || !profile.isAvailable) {
+        return NextResponse.json(
+          { error: 'Selected handyman is not available' },
+          { status: 400 },
+        )
+      }
+      const hs = await prisma.handymanService.findUnique({
+        where: { handymanId_serviceId: { handymanId: profile.id, serviceId } },
+      })
+      if (!hs || !hs.isActive) {
+        return NextResponse.json(
+          { error: 'Selected handyman does not offer this service' },
+          { status: 400 },
+        )
+      }
+      assignedHandymanUserId = profile.userId
+    } else {
+      // Auto-assign: find first available handyman
+      const date = new Date(scheduledDate)
+      const jsDay = date.getDay()
+      const isoDay = jsDay === 0 ? 7 : jsDay
+
+      const handymanService = await prisma.handymanService.findFirst({
+        where: {
+          serviceId,
+          isActive: true,
+          handyman: {
+            isAvailable: true,
+            availability: {
+              some: {
+                dayOfWeek: isoDay,
+                isAvailable: true,
+                startTime: { lte: scheduledTime },
+                endTime: { gte: scheduledTime },
+              },
             },
           },
         },
-      },
-      include: { handyman: { include: { user: true } } },
-      orderBy: { createdAt: 'asc' },
-    })
+        include: { handyman: { include: { user: true } } },
+        orderBy: { createdAt: 'asc' },
+      })
 
-    if (!handymanService) {
-      return NextResponse.json(
-        { error: 'No available handyman found for this service at the requested date and time' },
-        { status: 404 },
-      )
+      if (!handymanService) {
+        return NextResponse.json(
+          { error: 'No available handyman found for this service at the requested date and time' },
+          { status: 404 },
+        )
+      }
+
+      assignedHandymanUserId = handymanService.handyman.userId
     }
 
+    // Get handyman profile to calculate rate
+    const hp = await prisma.handymanProfile.findUnique({
+      where: { userId: assignedHandymanUserId },
+      select: { hourlyRate: true },
+    })
+
     const bookingDuration = duration ?? 1
-    const rate = handymanService.customPrice ?? handymanService.handyman.hourlyRate ?? 0
+    const rate = hp?.hourlyRate ?? 0
     const totalPrice = rate * bookingDuration
 
     const booking = await prisma.booking.create({
       data: {
         customerId: userId,
-        handymanId: handymanService.handyman.userId,
+        handymanId: assignedHandymanUserId,
         serviceId,
-        scheduledDate: new Date(scheduledDate),
+        scheduledDate: new Date(scheduledDate + 'T00:00:00'),
         scheduledTime,
         duration: bookingDuration,
         totalPrice,
@@ -131,6 +165,17 @@ export async function POST(request: Request) {
         service: { select: { name: true } },
         customer: { select: { firstName: true, lastName: true } },
         handyman: { select: { firstName: true, lastName: true } },
+      },
+    })
+
+    // Notify the handyman
+    await prisma.notification.create({
+      data: {
+        userId: assignedHandymanUserId,
+        title: 'New Booking Request',
+        message: `${booking.customer.firstName} ${booking.customer.lastName} booked ${booking.service.name} for ${scheduledDate} at ${scheduledTime}.`,
+        type: 'new_booking',
+        link: '/dashboard/bookings',
       },
     })
 
