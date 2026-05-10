@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useToast } from '@/lib/toast'
@@ -12,7 +12,7 @@ const STEPS = ['Service', 'Handyman', 'Schedule', 'Confirm']
 const TIME_SLOTS = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00']
 const DURATIONS = [1, 2, 3, 4, 5, 6, 8]
 
-export default function BookPage() {
+function BookPage() {
   const searchParams = useSearchParams()
   const preSelectedHandymanId = searchParams.get('handyman') || ''
   const { addToast } = useToast()
@@ -510,5 +510,13 @@ export default function BookPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function BookPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-16"><div className="spinner w-10 h-10" /></div>}>
+      <BookPage />
+    </Suspense>
   )
 }

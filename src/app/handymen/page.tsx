@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { StarIcon, MapPinIcon, SearchIcon, WrenchIcon } from '@/lib/icons'
@@ -12,7 +12,7 @@ const SERVICE_CATEGORIES = [
   'CLEANING', 'HVAC', 'APPLIANCE_REPAIR', 'LOCKSMITH', 'MOVING', 'GENERAL_REPAIR'
 ]
 
-export default function HandymenPage() {
+function HandymenPage() {
   const searchParams = useSearchParams()
   const initialCategory = searchParams.get('service') || 'ALL'
 
@@ -313,5 +313,13 @@ export default function HandymenPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function HandymenPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-16"><div className="spinner w-10 h-10" /></div>}>
+      <HandymenPage />
+    </Suspense>
   )
 }

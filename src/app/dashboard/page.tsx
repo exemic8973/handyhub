@@ -102,7 +102,7 @@ export default function DashboardPage() {
     pendingRequests: pendingBookings.length,
     activeJobs: confirmedBookings.length + inProgressBookings.length,
     completedJobs: completedBookings.length,
-    earnings: completedBookings.reduce((sum, b) => sum + b.totalPrice, 0),
+    earnings: completedBookings.reduce((sum, b) => sum + (b.totalPrice || 0), 0),
   } : {
     totalBookings: bookings.length,
     pendingBookings: pendingBookings.length,
@@ -152,28 +152,28 @@ export default function DashboardPage() {
               <ClockIcon className="w-6 h-6 text-yellow-600" />
             </div>
             <p className="text-sm font-medium text-gray-500">Pending Requests</p>
-            <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1">{stats.pendingRequests}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1">{stats.pendingRequests ?? 0}</p>
           </div>
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sm:p-6">
             <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-4">
               <BriefcaseIcon className="w-6 h-6 text-blue-600" />
             </div>
             <p className="text-sm font-medium text-gray-500">Active Jobs</p>
-            <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1">{stats.activeJobs}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1">{stats.activeJobs ?? 0}</p>
           </div>
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sm:p-6">
             <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-4">
               <CheckCircleIcon className="w-6 h-6 text-green-600" />
             </div>
             <p className="text-sm font-medium text-gray-500">Completed</p>
-            <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1">{stats.completedJobs}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1">{stats.completedJobs ?? 0}</p>
           </div>
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sm:p-6">
             <div className="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center mb-4">
               <CurrencyIcon className="w-6 h-6 text-primary-600" />
             </div>
             <p className="text-sm font-medium text-gray-500">Earnings</p>
-            <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1">{formatCurrency(stats.earnings)}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1">{formatCurrency(stats.earnings ?? 0)}</p>
           </div>
         </div>
 
@@ -376,7 +376,7 @@ export default function DashboardPage() {
             <StarIcon className="w-6 h-6 text-white" />
           </div>
           <p className="text-sm font-medium text-gray-500">Total Spent</p>
-          <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1">${stats.totalSpent.toLocaleString()}</p>
+          <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1">${(stats.totalSpent ?? 0).toLocaleString()}</p>
         </div>
       </div>
 

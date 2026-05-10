@@ -1,6 +1,5 @@
-import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
-import { authOptions } from '@/lib/auth'
+import { authOptions, getServerSession } from '@/lib/auth'
 import AdminClient from './AdminClient'
 
 export default async function AdminLayout({

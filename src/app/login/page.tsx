@@ -36,7 +36,7 @@ export default function LoginPage() {
       } else {
         addToast('Welcome back!', 'success')
         const session = await getSession()
-        const destination = session?.user?.role === 'ADMIN' ? '/admin' : '/dashboard'
+        const destination = (session?.user as any)?.role === 'ADMIN' ? '/admin' : '/dashboard'
         router.push(destination)
         router.refresh()
       }

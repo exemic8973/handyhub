@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useToast } from '@/lib/toast'
@@ -8,7 +8,7 @@ import {
   WrenchIcon, EyeIcon, EyeSlashIcon, CheckIcon, UserIcon, WrenchScrewdriverIcon
 } from '@/lib/icons'
 
-export default function RegisterPage() {
+function RegisterPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const defaultRole = searchParams.get('role') || 'customer'
@@ -481,5 +481,12 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+  )
+}
+export default function RegisterPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-16"><div className="spinner w-10 h-10" /></div>}>
+      <RegisterPage />
+    </Suspense>
   )
 }

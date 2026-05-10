@@ -1,10 +1,15 @@
-import { NextAuthOptions } from 'next-auth'
-import CredentialsProvider from 'next-auth/providers/credentials'
+const { default: CredentialsProvider } = require('next-auth/providers/credentials')
 import bcrypt from 'bcryptjs'
 import prisma from './prisma'
 import { checkRateLimit } from './rate-limit'
 
-export const authOptions: NextAuthOptions = {
+// getServerSession wrapper — works around next-auth v4 type export issue with TS 6
+const { getServerSession: _getServerSession } = require('next-auth')
+export async function getServerSession(_opts?: any) {
+  return _getServerSession(authOptions)
+}
+
+export const authOptions: any = {
   providers: [
     CredentialsProvider({
       name: 'credentials',
@@ -12,7 +17,7 @@ export const authOptions: NextAuthOptions = {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' }
       },
-      async authorize(credentials) {
+      async authorize(credentials: any) {
         if (!credentials?.email || !credentials?.password) {
           throw new Error('Invalid credentials')
         }
@@ -52,14 +57,14 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user }: any) {
       if (user) {
         token.role = user.role
         token.id = user.id
       }
       return token
     },
-    async session({ session, token }) {
+    async session({ session, token }: any) {
       if (session.user) {
         session.user.role = token.role as string
         session.user.id = token.id as string

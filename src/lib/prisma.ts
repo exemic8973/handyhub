@@ -22,8 +22,8 @@ function createPrismaClient(): PrismaClient {
     return new PrismaClient({ adapter: new PrismaPg(pool) })
   }
 
-  // Fallback: no adapter (Prisma will use direct connection for supported DBs)
-  return new PrismaClient({ datasourceUrl: url })
+  // Fallback: try direct connection
+  return new PrismaClient()
 }
 
 export const prisma: PrismaClient = globalForPrisma.prisma ?? createPrismaClient()
