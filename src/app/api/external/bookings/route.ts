@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import prisma from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
     const customerEmail = searchParams.get('customerEmail')
     const leaseDocumentId = searchParams.get('leaseDocumentId')
 
-    const where: Record<string, unknown> = {}
+    const where: Prisma.BookingWhereInput = {}
 
     if (customerEmail) {
       const customer = await prisma.user.findUnique({ where: { email: customerEmail } })
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
     }
 
     const bookings = await prisma.booking.findMany({
-      where: where as Parameters<typeof prisma.booking.findMany>[0]['where'],
+      where,
       include: {
         service: { select: { name: true, category: true } },
         customer: { select: { firstName: true, lastName: true, email: true } },
